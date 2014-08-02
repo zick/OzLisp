@@ -37,6 +37,7 @@ SymT = {MakeSym "t"}
 SymQuote = {MakeSym "quote"}
 SymIf = {MakeSym "if"}
 SymLambda = {MakeSym "lambda"}
+SymDefun = {MakeSym "defun"}
 
 fun {MakeCons A D}
   cons({NewCell A} {NewCell D})
@@ -199,7 +200,7 @@ proc {AddToEnv Sym Val Env}
    end
 end
 
-fun {Eval Obj Env} Bind Op Args C in
+fun {Eval Obj Env} Bind Op Args C Expr Sym in
    case Obj
    of nil then Obj
    [] num(_) then Obj
@@ -223,6 +224,11 @@ fun {Eval Obj Env} Bind Op Args C in
          end
       elseif Op == SymLambda then
          {MakeExpr Args Env}
+      elseif Op == SymDefun then
+         Expr = {MakeExpr {SafeCdr Args} Env}
+         Sym = {SafeCar Args}
+         {AddToEnv Sym Expr GEnv}
+         Sym
       else
          {Apply {Eval Op Env} {Evlis Args Env}}
       end
