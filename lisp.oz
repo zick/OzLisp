@@ -36,6 +36,7 @@ end
 SymT = {MakeSym "t"}
 SymQuote = {MakeSym "quote"}
 SymIf = {MakeSym "if"}
+SymLambda = {MakeSym "lambda"}
 
 fun {MakeCons A D}
   cons({NewCell A} {NewCell D})
@@ -52,6 +53,18 @@ fun {Nreverse Lst} Rec in
       end
    end
    {Rec Lst nil}
+end
+
+fun {Pairlis Lst1 Lst2} Rec in
+   fun {Rec Lst1 Lst2 Acc}
+      case Lst1|Lst2
+      of cons(A1 D1)|cons(A2 D2) then
+         {Rec @D1 @D2 {MakeCons {MakeCons @A1 @A2} Acc}}
+      else
+         {Nreverse Acc}
+      end
+   end
+   {Rec Lst1 Lst2 nil}
 end
 
 fun {IsSpace C}
@@ -138,6 +151,8 @@ fun {PrintObj Obj}
    [] sym(S) then S
    [] error(S) then {Append "<error: " {Append S ">"}}
    [] cons(_ _) then {PrintList Obj}
+   [] subr(_) then "<subr>"
+   [] expr(_ _ _) then "<expr>"
    end
 end
 
@@ -206,6 +221,8 @@ fun {Eval Obj Env} Bind Op Args C in
          [] nil then {Eval {SafeCar {SafeCdr {SafeCdr Args}}} Env}
          else {Eval {SafeCar {SafeCdr Args}} Env}
          end
+      elseif Op == SymLambda then
+         {MakeExpr Args Env}
       else
          {Apply {Eval Op Env} {Evlis Args Env}}
       end
@@ -231,6 +248,16 @@ fun {Evlis Lst Env} Rec X in
    end
 end
 
+fun {Progn Body Env} Rec in
+   fun {Rec Body Acc}
+      case Body
+      of cons(A D) then {Rec @D {Eval @A Env}}
+      else Acc
+      end
+   end
+   {Rec Body nil}
+end
+
 fun {Apply Fn Args}
    case Args
    of error(_) then Args
@@ -238,6 +265,7 @@ fun {Apply Fn Args}
       case Fn
       of error(_) then Fn
       [] subr(F) then {F Args}
+      [] expr(A B E) then {Progn B {MakeCons {Pairlis A Args} E}}
       else error({Append {PrintObj Fn} " is not function"})
       end
    end
