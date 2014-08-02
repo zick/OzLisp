@@ -38,6 +38,7 @@ SymQuote = {MakeSym "quote"}
 SymIf = {MakeSym "if"}
 SymLambda = {MakeSym "lambda"}
 SymDefun = {MakeSym "defun"}
+SymSetq = {MakeSym "setq"}
 
 fun {MakeCons A D}
   cons({NewCell A} {NewCell D})
@@ -200,7 +201,7 @@ proc {AddToEnv Sym Val Env}
    end
 end
 
-fun {Eval Obj Env} Bind Op Args C Expr Sym in
+fun {Eval Obj Env} Bind Op Args C Expr Sym Val in
    case Obj
    of nil then Obj
    [] num(_) then Obj
@@ -229,6 +230,15 @@ fun {Eval Obj Env} Bind Op Args C Expr Sym in
          Sym = {SafeCar Args}
          {AddToEnv Sym Expr GEnv}
          Sym
+      elseif Op == SymSetq then
+         Val = {Eval {SafeCar {SafeCdr Args}} Env}
+         Sym = {SafeCar Args}
+         Bind = {FindVar Sym Env}
+         case Bind
+         of cons(_ D) then D := Val
+         else {AddToEnv Sym Val GEnv}
+         end
+         Val
       else
          {Apply {Eval Op Env} {Evlis Args Env}}
       end
