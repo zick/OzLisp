@@ -12,14 +12,14 @@ Quote = &'
 
 fun {SafeCar Obj}
    case Obj
-   of cons(A _) then A
+   of cons(A _) then @A
    else nil
    end
 end
 
 fun {SafeCdr Obj}
    case Obj
-   of cons(_ D) then D
+   of cons(_ D) then @D
    else nil
    end
 end
@@ -33,6 +33,7 @@ fun {MakeSym Str} S in
    {SymTable.get S}
 end
 
+SymT = {MakeSym "t"}
 SymQuote = {MakeSym "quote"}
 
 fun {MakeCons A D}
@@ -42,7 +43,7 @@ end
 fun {Nreverse Lst} Rec in
    fun {Rec Lst Acc} Tmp in
       case Lst
-      of cons(A D) then
+      of cons(_ D) then
          Tmp = @D
          D := Acc
          {Rec Tmp Lst}
@@ -135,7 +136,7 @@ fun {PrintObj Obj}
    [] num(N) then {Int.toString N}
    [] sym(S) then S
    [] error(S) then {Append "<error: " {Append S ">"}}
-   [] cons(A D) then {PrintList Obj}
+   [] cons(_ _) then {PrintList Obj}
    end
 end
 
@@ -153,6 +154,49 @@ fun {PrintList Obj} Rec in
    {Rec Obj "" ""}
 end
 
+fun {FindVar Sym Env} Assoc X in
+   fun {Assoc Alist}
+      if Alist == nil then
+         nil
+      elseif {SafeCar {SafeCar Alist}} == Sym then
+         {SafeCar Alist}
+      else
+         {Assoc {SafeCdr Alist}}
+      end
+   end
+   if Env == nil then
+      nil
+   else
+      X = {Assoc {SafeCar Env}}
+      if X == nil then {FindVar Sym {SafeCdr Env}}
+      else X
+      end
+   end
+end
+
+GEnv = {MakeCons nil nil}
+
+proc {AddToEnv Sym Val Env}
+   case Env
+   of cons(A _) then
+      A := {MakeCons {MakeCons Sym Val} @A}
+   end
+end
+
+fun {Eval Obj Env} Bind in
+   case Obj
+   of nil then Obj
+   [] num(_) then Obj
+   [] error(_) then Obj
+   [] sym(S) then
+      Bind = {FindVar Obj Env}
+      if Bind == nil then error({Append S " has no value"})
+      else {SafeCdr Bind}
+      end
+   else error("noimpl")
+   end
+end
+
 local
    class TextFile from Open.file Open.text end
    StdIn = {New TextFile init(name:stdin)}
@@ -161,10 +205,11 @@ in
       {System.printInfo Prompt}
       Line = {StdIn getS($)}
       if Line \= false then
-        {System.showInfo {PrintObj {Read Line}.1}}
+        {System.showInfo {PrintObj {Eval {Read Line}.1 GEnv}}}
         {Repl Prompt}
       end
    end
+   {AddToEnv SymT SymT GEnv}
    {Repl "> "}
    {Application.exit 0}
 end
