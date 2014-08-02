@@ -299,6 +299,72 @@ fun {SubrCons Args}
    {MakeCons {SafeCar Args} {SafeCar {SafeCdr Args}}}
 end
 
+fun {SubrEq Args} X Y in
+   X = {SafeCar Args}
+   Y = {SafeCar {SafeCdr Args}}
+   case X|Y
+   of num(N)|num(N) then SymT
+   else
+      if X == Y then SymT
+      else nil
+      end
+   end
+end
+
+fun {SubrAtom Args}
+   case {SafeCar Args}
+   of cons(_ _) then nil
+   else SymT
+   end
+end
+
+fun {SubrNumberp Args}
+   case {SafeCar Args}
+   of num(_) then SymT
+   else nil
+   end
+end
+
+fun {SubrSymbolp Args}
+   case {SafeCar Args}
+   of sym(_) then SymT
+   else nil
+   end
+end
+
+fun {SubrAddOrMul Fn InitVal}
+   fun {$ Args} Rec in
+      fun {Rec Args Acc}
+         case Args
+         of cons(A D) then
+            case @A
+            of error(_) then @A
+            [] num(N) then {Rec @D {Fn Acc N}}
+            else error("wrong type")
+            end
+         else num(Acc)
+         end
+      end
+      {Rec Args InitVal}
+   end
+end
+SubrAdd = {SubrAddOrMul fun {$ X Y} X + Y end 0}
+SubrMul = {SubrAddOrMul fun {$ X Y} X * Y end 1}
+
+fun {SubrSubOrDivOrMod Fn}
+   fun {$ Args} X Y in
+      X = {SafeCar Args}
+      Y = {SafeCar {SafeCdr Args}}
+      case X|Y
+      of num(N)|num(M) then num({Fn N M})
+      else error("wrong type")
+      end
+   end
+end
+SubrSub = {SubrSubOrDivOrMod fun {$ X Y} X - Y end}
+SubrDiv = {SubrSubOrDivOrMod fun {$ X Y} X div Y end}
+SubrMod = {SubrSubOrDivOrMod fun {$ X Y} X mod Y end}
+
 local
    class TextFile from Open.file Open.text end
    StdIn = {New TextFile init(name:stdin)}
@@ -314,6 +380,15 @@ in
    {AddToEnv {MakeSym "car"} subr(SubrCar) GEnv}
    {AddToEnv {MakeSym "cdr"} subr(SubrCdr) GEnv}
    {AddToEnv {MakeSym "cons"} subr(SubrCons) GEnv}
+   {AddToEnv {MakeSym "eq"} subr(SubrEq) GEnv}
+   {AddToEnv {MakeSym "atom"} subr(SubrAtom) GEnv}
+   {AddToEnv {MakeSym "numberp"} subr(SubrNumberp) GEnv}
+   {AddToEnv {MakeSym "symbolp"} subr(SubrSymbolp) GEnv}
+   {AddToEnv {MakeSym "+"} subr(SubrAdd) GEnv}
+   {AddToEnv {MakeSym "*"} subr(SubrMul) GEnv}
+   {AddToEnv {MakeSym "-"} subr(SubrSub) GEnv}
+   {AddToEnv {MakeSym "/"} subr(SubrDiv) GEnv}
+   {AddToEnv {MakeSym "mod"} subr(SubrMod) GEnv}
    {AddToEnv SymT SymT GEnv}
    {Repl "> "}
    {Application.exit 0}
