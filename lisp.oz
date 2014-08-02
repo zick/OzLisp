@@ -35,6 +35,7 @@ end
 
 SymT = {MakeSym "t"}
 SymQuote = {MakeSym "quote"}
+SymIf = {MakeSym "if"}
 
 fun {MakeCons A D}
   cons({NewCell A} {NewCell D})
@@ -183,7 +184,7 @@ proc {AddToEnv Sym Val Env}
    end
 end
 
-fun {Eval Obj Env} Bind in
+fun {Eval Obj Env} Bind Op Args C in
    case Obj
    of nil then Obj
    [] num(_) then Obj
@@ -193,8 +194,65 @@ fun {Eval Obj Env} Bind in
       if Bind == nil then error({Append S " has no value"})
       else {SafeCdr Bind}
       end
-   else error("noimpl")
+   else
+      Op = {SafeCar Obj}
+      Args = {SafeCdr Obj}
+      if Op == SymQuote then
+        {SafeCar Args}
+      elseif Op == SymIf then
+         C = {Eval {SafeCar Args} Env}
+         case C
+         of error(_) then C
+         [] nil then {Eval {SafeCar {SafeCdr {SafeCdr Args}}} Env}
+         else {Eval {SafeCar {SafeCdr Args}} Env}
+         end
+      else
+         {Apply {Eval Op Env} {Evlis Args Env}}
+      end
    end
+end
+
+fun {Evlis Lst Env} Rec X in
+   fun {Rec Lst Acc} Elm in
+      case Lst
+      of cons(A D) then
+         Elm = {Eval @A Env}
+         case Elm
+         of error(_) then Elm
+         else {Rec @D {MakeCons Elm Acc}}
+         end
+      else Acc
+      end
+   end
+   X = {Rec Lst nil}
+   case X
+   of error(_) then X
+   else {Nreverse X}
+   end
+end
+
+fun {Apply Fn Args}
+   case Args
+   of error(_) then Args
+   else
+      case Fn
+      of error(_) then Fn
+      [] subr(F) then {F Args}
+      else error({Append {PrintObj Fn} " is not function"})
+      end
+   end
+end
+
+fun {SubrCar Args}
+   {SafeCar {SafeCar Args}}
+end
+
+fun {SubrCdr Args}
+   {SafeCdr {SafeCar Args}}
+end
+
+fun {SubrCons Args}
+   {MakeCons {SafeCar Args} {SafeCar {SafeCdr Args}}}
 end
 
 local
@@ -209,6 +267,9 @@ in
         {Repl Prompt}
       end
    end
+   {AddToEnv {MakeSym "car"} subr(SubrCar) GEnv}
+   {AddToEnv {MakeSym "cdr"} subr(SubrCdr) GEnv}
+   {AddToEnv {MakeSym "cons"} subr(SubrCons) GEnv}
    {AddToEnv SymT SymT GEnv}
    {Repl "> "}
    {Application.exit 0}
