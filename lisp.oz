@@ -33,6 +33,25 @@ fun {MakeSym Str} S in
    {SymTable.get S}
 end
 
+SymQuote = {MakeSym "quote"}
+
+fun {MakeCons A D}
+  cons({NewCell A} {NewCell D})
+end
+
+fun {Nreverse Lst} Rec in
+   fun {Rec Lst Acc} Tmp in
+      case Lst
+      of cons(A D) then
+         Tmp = @D
+         D := Acc
+         {Rec Tmp Lst}
+      else Acc
+      end
+   end
+   {Rec Lst nil}
+end
+
 fun {IsSpace C}
    C == &\t orelse C == &\r orelse C == &\n orelse C == &\x20
 end
@@ -80,21 +99,58 @@ fun {Read Str} S in
    elseif S.1 == RPar then
       {ParseError {Append "invalid syntax: " S}}
    elseif S.1 == LPar then
-      {ParseError "noimpl"}
+      {ReadList S.2}
    elseif S.1 == Quote then
-      {ParseError "noimpl"}
+      local Elm Next
+      in
+         Elm|Next = {Read S.2}
+         {MakeCons SymQuote {MakeCons Elm nil}}|Next
+      end
    else
       {ReadAtom S}
    end
 end
 
+fun {ReadList Str} Rec in
+   fun {Rec Str Acc} S Elm Next in
+      S = {SkipSpaces Str}
+      if S == nil then
+         {ParseError "unfinishde parenthesis"}
+      elseif S.1 == RPar then
+         {Nreverse Acc}|Str.2
+      else
+         Elm|Next = {Read S}
+         case Elm
+         of error(_) then Elm|Next
+         else {Rec Next {MakeCons Elm Acc}}
+         end
+      end
+   end
+   {Rec Str nil}
+end
+
 fun {PrintObj Obj}
-  case Obj
-  of nil then "nil"
-  [] num(N) then {Int.toString N}
-  [] sym(S) then S
-  [] error(S) then {Append "<error: " {Append S ">"}}
-  end
+   case Obj
+   of nil then "nil"
+   [] num(N) then {Int.toString N}
+   [] sym(S) then S
+   [] error(S) then {Append "<error: " {Append S ">"}}
+   [] cons(A D) then {PrintList Obj}
+   end
+end
+
+fun {PrintList Obj} Rec in
+   fun {Rec Obj Blank Acc}
+     case Obj
+     of cons(A D) then
+        {Rec @D " " {Append Acc {Append Blank {PrintObj @A}}}}
+     [] nil then
+        {Append "(" {Append Acc ")"}}
+     else
+        {Append "(" {Append Acc {Append " . " {Append {PrintObj Obj} ")"}}}}
+     end
+   end
+   {Rec Obj "" ""}
 end
 
 local
